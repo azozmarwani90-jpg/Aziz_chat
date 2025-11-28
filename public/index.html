@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aziz AI Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>
+        
+        <span>Aziz AI Chat</span>
+      </h1>
+      <div class="status"></div>
+    </div>
+
+    <!-- Chat messages area -->
+    <div id="chat">
+      <div class="message ai-message">
+       
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <!-- File preview -->
+      <div id="filePreview" class="file-preview" style="display: none;"></div>
+      
+      <!-- Input container -->
+      <div class="input-container">
+        <div class="input-wrapper">
+          <textarea 
+            id="msgInput" 
+            placeholder="Type your message here"
+            rows="1"
+            autocomplete="off"
+          ></textarea>
+          <button id="attachBtn" class="attach-btn" title="Attach image">📎</button>
+          <input type="file" id="fileInput" accept="image/*">
+        </div>
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
