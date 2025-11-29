@@ -10,7 +10,6 @@ const { createClient } = require("@supabase/supabase-js");
 const app = express();
 app.use(cors({ origin: "*" }));
 
-// مهم جداً لرفع الصور (Base64)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -19,7 +18,7 @@ app.use(express.static("public"));
 // -------------------------------
 // OpenAI Client
 // -------------------------------
-const openai = new OpenAI({
+const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
@@ -28,7 +27,7 @@ const openai = new OpenAI({
 // -------------------------------
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // لازم يكون SERVICE ROLE
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 // -------------------------------
@@ -42,7 +41,7 @@ app.post("/chat", async (req, res) => {
       return res.status(400).json({ error: "Message or image is required" });
     }
 
-    // Build messages payload for OpenAI
+    // Build messages payload
     const messages = [];
 
     if (message) {
@@ -58,20 +57,24 @@ app.post("/chat", async (req, res) => {
         content: [
           { type: "text", text: message || "Analyze this image" },
           {
-            type: "image_url",
+            type: "input_image",
             image_url: { url: `data:image/jpeg;base64,${image}` },
           },
         ],
       });
     }
 
-    // Send to OpenAI
-    const completion = await openai.chat.completions.create({
-    model: "gpt-5", 
-      messages: messages,
+    // ---------------------------------------
+    // NEW: Send to OpenAI using Responses API
+    // ---------------------------------------
+    const response = await client.responses.create({
+      model: "gpt-4o", // غيّرها gpt-4.1 أو gpt-5 حسب المتوفر عندك
+      input: messages,
     });
 
-    const reply = completion.choices[0].message.content;
+    const reply =
+      response.output?.[0]?.content?.[0]?.text ||
+      "No response generated.";
 
     // Save chat in Supabase
     await supabase.from("messages").insert([
