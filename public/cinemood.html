@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineMood - Your Mood, Your Movie</title>
+  <link rel="stylesheet" href="cinemood.css">
+</head>
+<body>
+  
+  <!-- ================================ -->
+  <!-- NAVIGATION -->
+  <!-- ================================ -->
+  <nav class="main-nav">
+    <div class="nav-container">
+      <div class="nav-logo">
+        <span class="logo-icon">🎬</span>
+        <span class="logo-text">CineMood</span>
+      </div>
+      <div class="nav-links">
+        <a href="#" class="nav-link active" data-section="mood">Mood Search</a>
+        <a href="#" class="nav-link" data-section="discover">Discover</a>
+        <a href="#" class="nav-link" data-section="profile">Profile</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================================ -->
+  <!-- SECTION A: MOOD INPUT HERO -->
+  <!-- ================================ -->
+  <section id="moodSection" class="section active">
+    <div class="mood-hero">
+      <div class="mood-card">
+        <h1 class="mood-heading">What's your mood tonight?</h1>
+        <p class="mood-subheading">Tell us how you're feeling, and we'll find the perfect watch</p>
+        
+        <textarea 
+          id="moodInput" 
+          class="mood-textarea" 
+          placeholder="e.g., أبغى شيء خفيف يونسني... or I want something deep and emotional"
+          rows="3"
+        ></textarea>
+        
+        <div class="mood-chips">
+          <button class="mood-chip" data-mood="light and funny">✨ Light / Funny</button>
+          <button class="mood-chip" data-mood="deep and emotional">💭 Deep / Emotional</button>
+          <button class="mood-chip" data-mood="dark psychological thriller">🌑 Dark / Psychological</button>
+          <button class="mood-chip" data-mood="romantic and heartwarming">💕 Romantic</button>
+          <button class="mood-chip" data-mood="action packed and thrilling">⚡ Action / Thrilling</button>
+          <button class="mood-chip" data-mood="easy short watch">🍿 Easy / Short Watch</button>
+          <button class="mood-chip" data-mood="cozy and warm">🔥 Cozy / Warm</button>
+          <button class="mood-chip" data-mood="scary horror">👻 Scary / Horror</button>
+        </div>
+        
+        <button id="findBtn" class="find-btn">
+          <span>Find Something to Watch</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader" class="loader-container" style="display: none;">
+      <div class="loader-spinner"></div>
+      <p class="loader-text">Finding your perfect match...</p>
+    </div>
+
+    <!-- Results Grid -->
+    <div id="resultsContainer" class="results-container" style="display: none;">
+      <div class="results-header">
+        <h2 id="resultsTitle">Your Recommendations</h2>
+        <button id="newSearchBtn" class="new-search-btn">New Search</button>
+      </div>
+      <div id="resultsGrid" class="results-grid"></div>
+    </div>
+  </section>
+
+  <!-- ================================ -->
+  <!-- SECTION D: DISCOVER -->
+  <!-- ================================ -->
+  <section id="discoverSection" class="section">
+    <div class="discover-container">
+      <h1 class="section-title">Discover</h1>
+      <div id="discoverCarousels" class="discover-carousels"></div>
+    </div>
+  </section>
+
+  <!-- ================================ -->
+  <!-- SECTION E: PROFILE -->
+  <!-- ================================ -->
+  <section id="profileSection" class="section">
+    <div class="profile-container">
+      <h1 class="section-title">Your Cinema Profile</h1>
+      
+      <div class="profile-personality" id="profilePersonality">
+        <div class="personality-icon">🎭</div>
+        <p class="personality-text">Loading your cinema personality...</p>
+      </div>
+
+      <div class="profile-stats" id="profileStats"></div>
+
+      <div class="profile-sections">
+        <div class="profile-section">
+          <h2>Recent Moods</h2>
+          <div id="moodHistoryList" class="mood-history-list"></div>
+        </div>
+
+        <div class="profile-section">
+          <h2>Favorites</h2>
+          <div id="favoritesList" class="favorites-grid"></div>
+        </div>
+
+        <div class="profile-section">
+          <h2>Recently Viewed</h2>
+          <div id="viewedList" class="viewed-grid"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================ -->
+  <!-- SECTION C: TITLE DETAILS MODAL -->
+  <!-- ================================ -->
+  <div id="titleModal" class="title-modal">
+    <div class="title-modal-overlay"></div>
+    <div class="title-modal-content">
+      <button class="title-modal-close">&times;</button>
+      <div id="titleModalBody" class="title-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ================================ -->
+  <!-- SECTION F: FLOATING CHAT WIDGET -->
+  <!-- ================================ -->
+  <div id="chatWidget" class="chat-widget">
+    <button id="chatToggle" class="chat-toggle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+    </button>
+    
+    <div id="chatPanel" class="chat-panel" style="display: none;">
+      <div class="chat-header">
+        <span>AI Assistant</span>
+        <button id="chatClose" class="chat-close">&times;</button>
+      </div>
+      <div id="chatMessages" class="chat-messages"></div>
+      <div class="chat-input-container">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Ask me anything..." />
+        <button id="chatSend" class="chat-send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="cinemood.js"></script>
+</body>
+</html>

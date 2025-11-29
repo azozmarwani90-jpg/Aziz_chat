@@ -1,143 +1,338 @@
-# 🤖 Aziz AI Chat
+# 🎬 Aziz Platform - CineMood & AI Chat
 
-A modern, full-stack AI chat application built with Node.js, Express, and OpenAI's GPT API. Features a beautiful dark-themed UI with support for text conversations and image analysis.
+A comprehensive entertainment and AI platform featuring two distinct applications:
+1. **CineMood** - AI-powered mood-based movie and TV show recommendations
+2. **Aziz Chat** - Conversational AI with full context memory and image support
 
-![Chat Interface](https://img.shields.io/badge/Status-Active-success)
+![Status](https://img.shields.io/badge/Status-Active-success)
 ![Node.js](https://img.shields.io/badge/Node.js-v14+-green)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
-## ✨ Features
+## 🌟 Features
 
-- 💬 Real-time AI chat conversations using OpenAI GPT
-- 🖼️ Image upload and AI vision analysis
-- 🎨 Modern, responsive dark-themed UI
-- ⚡ Fast and lightweight Express backend
-- 🔒 Secure API key management with environment variables
-- 📱 Mobile-friendly responsive design
-- 🎭 Typing indicators and smooth animations
-- 📎 Drag-and-drop image support
+### CineMood
+- 🎬 **Mood-Based Search**: Input how you're feeling, get perfect movie/TV matches
+- 🤖 **AI-Powered Analysis**: OpenAI interprets moods and generates cinematic insights
+- 🎥 **TMDB Integration**: Real movie/TV data, posters, trailers, ratings
+- 📺 **Embedded Trailers**: Watch YouTube trailers directly in the interface
+- ⭐ **Favorites & History**: Track your watching history and favorites
+- 🎭 **Cinema Personality**: AI-generated personality profile based on your tastes
+- 🌆 **Discover Section**: Curated carousels with trending and popular titles
+- 💬 **AI Chat Widget**: Optional assistant for quick movie queries
+
+### Aziz Chat
+- 💬 **Full Context Conversations**: Maintains complete conversation history
+- 🖼️ **Image Analysis**: Upload and discuss images with AI
+- 📝 **Multi-Turn Dialogues**: Coherent conversations with memory across sessions
+- 🎨 **Clean UI**: Modern chat interface with sidebar navigation
+- 🔄 **Multiple Chats**: Create and manage separate conversation threads
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Node.js (v14 or higher)
-- npm (comes with Node.js)
+- Node.js >= 14.0.0
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+- TMDB API key ([Get free key](https://www.themoviedb.org/settings/api))
+- Supabase account ([Create free account](https://supabase.com))
 
 ### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/aziz-ai-chat.git
-   cd aziz-ai-chat
-   ```
+```bash
+git clone <your-repo-url>
+cd Aziz_chat
+```
 
 2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 3. **Set up environment variables**
-   
-   Create a `.env` file in the root directory:
-   ```bash
-   OPENAI_API_KEY=your_openai_api_key_here
-   ```
-   
-   ⚠️ **Important:** Never commit your `.env` file to GitHub!
 
-4. **Start the server**
-   ```bash
-   npm start
-   ```
+Create a `.env` file in the root directory:
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+TMDB_KEY=your_tmdb_api_key_here
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_key_here
+PORT=3000
+```
 
-5. **Open your browser**
-   
-   Navigate to: `http://localhost:3000`
+⚠️ **Important:** Never commit your `.env` file to GitHub!
+
+4. **Set up Supabase database**
+
+Run these SQL commands in your Supabase SQL editor:
+
+```sql
+-- Chat messages table
+CREATE TABLE messages (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  reply TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- CineMood: Mood history
+CREATE TABLE mood_history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  mood_text TEXT NOT NULL,
+  mood_tags TEXT[],
+  genres TEXT[],
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- CineMood: Recommendations
+CREATE TABLE recommendations_history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  mood_id BIGINT REFERENCES mood_history(id),
+  tmdb_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  why_it_fits TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- CineMood: Favorites
+CREATE TABLE favorites (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  tmdb_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  poster_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, tmdb_id)
+);
+
+-- CineMood: Viewed titles
+CREATE TABLE viewed_titles (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  tmdb_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  poster_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+5. **Start the server**
+```bash
+npm start
+```
+
+6. **Open your browser**
+- Main landing page: `http://localhost:3000`
+- CineMood: `http://localhost:3000/cinemood.html`
+- Aziz Chat: `http://localhost:3000/chat.html`
 
 ## 📁 Project Structure
 
 ```
-aziz-ai-chat/
-├── public/              # Frontend files
-│   ├── index.html      # Main HTML file
-│   ├── style.css       # Styles
-│   └── script.js       # Client-side JavaScript
-├── server.js           # Express backend server
-├── package.json        # Project dependencies
-├── .env               # Environment variables (not in Git)
-├── .gitignore         # Git ignore file
-└── README.md          # This file
+Aziz_chat/
+├── server.js              # Main Express server with all endpoints
+├── tmdb_helper.js         # TMDB API integration helper
+├── ai_helper.js           # OpenAI integration for CineMood
+├── package.json           # Node dependencies
+├── .env                   # Environment variables (not in repo)
+├── .gitignore            # Git ignore rules
+├── public/
+│   ├── index.html         # Landing page
+│   ├── cinemood.html      # CineMood app interface
+│   ├── cinemood.css       # CineMood styles
+│   ├── cinemood.js        # CineMood functionality
+│   ├── chat.html          # Chat app interface
+│   ├── script.js          # Chat functionality
+│   └── style.css          # Chat styles
+└── README.md              # This file
 ```
+
+## 🔌 API Endpoints
+
+### CineMood Endpoints
+
+#### POST `/api/recommend`
+Get mood-based recommendations
+```json
+{
+  "user_id": "string",
+  "mood_text": "I want something light and funny"
+}
+```
+
+**Response:**
+```json
+{
+  "mood_summary": "Found 8 light, funny picks for you",
+  "mood_tags": ["light", "funny"],
+  "genres": ["comedy"],
+  "recommendations": [...]
+}
+```
+
+#### GET `/api/title/:type/:tmdb_id`
+Get detailed title information with AI descriptions
+- `type`: "movie" or "tv"
+- `tmdb_id`: TMDB ID number
+
+#### GET `/api/discover`
+Get curated discovery sections with AI-generated captions
+
+#### GET `/api/profile/:user_id`
+Get user profile with cinema personality and statistics
+
+#### POST `/api/favorite`
+Add/remove favorites
+
+#### POST `/api/viewed`
+Mark title as viewed
+
+### Chat Endpoints
+
+#### POST `/chat`
+Send message to AI chat with optional image
+```json
+{
+  "user_id": "string",
+  "message": "string",
+  "image": "base64_data_url" (optional)
+}
+```
+
+#### GET `/history/:user_id`
+Get chat history for user
+
+## 🎨 Design Philosophy
+
+### CineMood Theme
+- **Dark Cinema Aesthetic**: Deep blacks (#0c0c0c) with subtle elevations
+- **Neon Accents**: Hot pink/magenta (#ff006e, #ff2e63) for energy and excitement
+- **Glassmorphism**: Blur effects and translucent cards for depth
+- **Cinematic Animations**: Smooth fades, slides, and hover effects
+- **Gold Ratings**: Star ratings in golden accent (#ffd700)
+
+### User Experience
+- Responsive grid layouts that adapt to any screen size
+- Horizontal scroll carousels with snap scrolling
+- Fullscreen modals with blurred cinematic backdrops
+- Floating chat widget that doesn't interfere with main UX
+- Smooth transitions and delightful micro-animations
 
 ## 🛠️ Technologies Used
 
-- **Backend:**
-  - Node.js
-  - Express.js
-  - OpenAI API (GPT-3.5-turbo & GPT-4o-mini with vision)
-  - dotenv for environment variables
-  - CORS for cross-origin requests
+- **Backend**: Node.js, Express.js
+- **AI**: OpenAI GPT-4o (via OpenAI SDK)
+- **Movie Data**: The Movie Database (TMDB) API
+- **Database**: Supabase (PostgreSQL)
+- **Frontend**: Vanilla JavaScript, CSS3, HTML5
+- **Styling**: Custom CSS with CSS Grid, Flexbox, and animations
 
-- **Frontend:**
-  - Vanilla JavaScript
-  - CSS3 with animations
-  - Responsive design
+## 🎯 Usage Examples
 
-## 🎯 Usage
+### CineMood: Mood-Based Search
+1. Navigate to CineMood from the landing page
+2. Type your mood in English or Arabic: "أبغى شيء خفيف يونسني"
+3. Or click a mood chip for quick selection
+4. Click "Find Something to Watch"
+5. Browse AI-curated recommendations with "why it fits" explanations
+6. Click any title for full details, trailer, and AI insights
+7. Add to favorites or mark as viewed
 
-### Text Chat
-1. Type your message in the input field
-2. Press Enter or click "Send"
-3. The AI will respond in real-time
+### Using the Discover Section
+1. Click "Discover" in the navigation
+2. Scroll through curated carousels
+3. Each section has AI-generated captions
+4. Click any poster to see full details
 
-### Image Analysis
-1. Click the 📎 paperclip icon
-2. Select an image (PNG, JPG, etc.)
-3. Add an optional message or question about the image
-4. Send and the AI will analyze it
+### Your Cinema Profile
+1. Click "Profile" in the navigation
+2. Read your AI-generated cinema personality
+3. View statistics on your viewing habits
+4. Browse your mood history, favorites, and viewed titles
 
-### Keyboard Shortcuts
-- `Enter` - Send message
-- `Shift + Enter` - New line in message
+### AI Chat
+1. Navigate to Aziz Chat
+2. Start a new conversation or continue existing ones
+3. Upload images for AI analysis (optional)
+4. Chat maintains full context across the conversation
+
+### Floating Chat Widget (in CineMood)
+1. Click the pink chat bubble in bottom-right corner
+2. Ask questions like:
+   - "What's a good thriller like Gone Girl?"
+   - "Recommend a family movie for tonight"
+   - "Tell me about Inception without spoilers"
 
 ## ⚙️ Configuration
 
-You can modify the following in `server.js`:
+### Server Settings
+Edit `server.js` to customize:
+- Port number (default: 3000)
+- CORS settings for production
+- OpenAI model selection
 
-- **Port:** Change `const PORT = 3000;` to your preferred port
-- **AI Model:** Change `model: "gpt-3.5-turbo"` to other OpenAI models
-- **CORS:** Modify `app.use(cors())` for specific origins
+### AI Behavior
+Edit `ai_helper.js` to modify:
+- AI prompts and personality
+- Temperature settings for creativity
+- Token limits for responses
+
+### TMDB Queries
+Edit `tmdb_helper.js` to adjust:
+- Minimum rating thresholds
+- Number of results per query
+- Genre mappings
 
 ## 🔒 Security Notes
 
-- ✅ API keys are stored in `.env` file (not committed to Git)
-- ✅ `.gitignore` prevents sensitive files from being uploaded
-- ✅ CORS is enabled for development (configure for production)
-- ⚠️ For production, add rate limiting and authentication
+- ✅ API keys stored in `.env` file (gitignored)
+- ✅ Service role key used for Supabase (secure)
+- ✅ Input validation on all endpoints
+- ✅ Error handling to prevent data leaks
+- ⚠️ For production: Add rate limiting, authentication, and HTTPS
 
-## 📝 Environment Variables
+## 🐛 Troubleshooting
 
-Create a `.env` file with:
+### "TMDB API key not configured"
+- Ensure `TMDB_KEY` is set in `.env` file
+- Get a free API key from themoviedb.org
+- Restart the server after adding the key
 
-```env
-OPENAI_API_KEY=sk-proj-your-key-here
-```
+### "Server error" when searching
+- Check OpenAI API key is valid and has credits
+- Verify Supabase connection settings
+- Check server console for detailed error messages
 
-## 🤝 Contributing
+### Images not loading
+- TMDB posters may be slow on first load
+- Check browser console for CORS issues
+- Verify TMDB API key is active
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Chat context not working
+- Ensure Supabase `messages` table exists
+- Check table schema matches documentation
+- Verify user_id is consistent across requests
 
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### Mood search returns no results
+- Try different mood descriptions
+- Check TMDB API is accessible
+- Verify genre mappings in `tmdb_helper.js`
 
-## 📄 License
+## 🎭 Easter Eggs
 
-This project is licensed under the ISC License.
+CineMood includes special AI responses for certain moods:
+- "I'm depressed" → Suggests uplifting, feel-good movies
+- "I want something insane" → AI responds with fun, chaotic recommendations
+- Empty results → "Even the universe is confused… try another mood."
+
+## 📝 License
+
+ISC License - Feel free to use and modify
 
 ## 👤 Author
 
@@ -145,28 +340,31 @@ This project is licensed under the ISC License.
 
 ## 🙏 Acknowledgments
 
-- OpenAI for their amazing GPT API
-- The Node.js and Express communities
-
-## 🐛 Known Issues
-
-- Large images (>5MB) are rejected
-- Only image files are supported for upload
+- OpenAI for GPT-4o API
+- The Movie Database (TMDB) for comprehensive movie/TV data
+- Supabase for database hosting and real-time capabilities
+- The open-source community
 
 ## 🔮 Future Enhancements
 
-- [ ] Chat history persistence
-- [ ] Multiple conversation threads
-- [ ] Voice input/output
-- [ ] More AI models support
-- [ ] User authentication
+- [ ] User authentication and personalized accounts
+- [ ] Social features: share recommendations with friends
+- [ ] Watchlist with reminders for upcoming releases
+- [ ] Integration with streaming services (Netflix, Prime, etc.)
+- [ ] Voice input for mood search
 - [ ] Dark/Light theme toggle
-- [ ] Export chat history
+- [ ] Export cinema personality as shareable image
+- [ ] Multi-language support (full Arabic translation)
+- [ ] Progressive Web App (PWA) for mobile installation
 
 ## 📞 Support
 
-If you have any questions or run into issues, please open an issue on GitHub.
+If you encounter issues or have questions:
+1. Check the Troubleshooting section above
+2. Review server console logs for errors
+3. Verify all environment variables are set correctly
+4. Open an issue on GitHub with detailed information
 
 ---
 
-Made with ❤️ by Aziz
+Made with ❤️ and 🎬 by Aziz
