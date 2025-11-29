@@ -31,7 +31,7 @@ const supabase = createClient(
 );
 
 // -------------------------------
-// Chat Endpoint (Text + Image)
+// Chat Endpoint (Text + Image with Full Context)
 // -------------------------------
 app.post("/chat", async (req, res) => {
   try {
@@ -41,45 +41,84 @@ app.post("/chat", async (req, res) => {
       return res.status(400).json({ error: "Message or image is required" });
     }
 
-    // Build messages payload
-    const messages = [];
+    const userId = user_id || "guest";
 
-    if (message) {
-      messages.push({
-        role: "user",
-        content: message,
+    // -------------------------------
+    // 1. FETCH CONVERSATION HISTORY FROM SUPABASE
+    // -------------------------------
+    const { data: history, error: fetchError } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (fetchError) {
+      console.error("Supabase fetch error:", fetchError);
+      return res.status(500).json({ error: "Server error" });
+    }
+
+    // -------------------------------
+    // 2. BUILD CONVERSATION ARRAY
+    // -------------------------------
+    const conversation = [
+      { role: "system", content: "You are a helpful assistant." }
+    ];
+
+    // Add previous messages from Supabase
+    if (history && history.length > 0) {
+      history.forEach(row => {
+        conversation.push({ role: "user", content: row.prompt });
+        conversation.push({ role: "assistant", content: row.reply });
       });
     }
 
+    // -------------------------------
+    // 3. APPEND NEW USER MESSAGE
+    // -------------------------------
     if (image) {
-      messages.push({
+      // If image exists, send text + image in single message
+      conversation.push({
         role: "user",
         content: [
           { type: "text", text: message || "Analyze this image" },
           {
             type: "input_image",
-            image_url: { url: `data:image/jpeg;base64,${image}` },
+            image_url: { url: image }, // Frontend already sends full data URL
           },
         ],
+      });
+    } else if (message) {
+      // If only text, send text-only message
+      conversation.push({
+        role: "user",
+        content: message,
       });
     }
 
     // -------------------------------
-    // Send to OpenAI (supports GPT-5 / GPT-6 / 4o)
+    // 4. CONTEXT TRIMMING (keep last 8 back-and-forth + system)
+    // -------------------------------
+    // Total messages = system + (user + assistant pairs)
+    // If more than 20 messages (1 system + 19 others), trim to keep last 8 pairs (16 messages) + system
+    if (conversation.length > 20) {
+      const systemMsg = conversation[0]; // Keep system message
+      const recentMessages = conversation.slice(-16); // Keep last 16 messages (8 user+assistant pairs)
+      conversation.splice(0, conversation.length, systemMsg, ...recentMessages);
+    }
+
+    // -------------------------------
+    // 5. SEND TO OPENAI WITH FULL CONTEXT
     // -------------------------------
     const response = await client.responses.create({
       model: "gpt-5", 
-      input: messages,
+      input: conversation,
     });
 
     // Log the actual model used (important!)
-    console.log(
-      "🚀 MODEL USED BY OPENAI:",
-      response.model
-    );
+    console.log("🚀 MODEL USED BY OPENAI:", response.model);
 
     // -------------------------------
-    // Extract reply (works for all models)
+    // 6. EXTRACT REPLY (works for all models)
     // -------------------------------
     let reply;
 
@@ -92,15 +131,20 @@ app.post("/chat", async (req, res) => {
     }
 
     // -------------------------------
-    // Save chat in Supabase
+    // 7. SAVE NEW MESSAGE TO SUPABASE
     // -------------------------------
-    await supabase.from("messages").insert([
+    const { error: insertError } = await supabase.from("messages").insert([
       {
-        user_id: user_id || "guest",
+        user_id: userId,
         prompt: message || "[image]",
         reply: reply,
       },
     ]);
+
+    if (insertError) {
+      console.error("Supabase insert error:", insertError);
+      return res.status(500).json({ error: "Server error" });
+    }
 
     res.json({ reply });
 
