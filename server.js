@@ -68,10 +68,14 @@ app.post("/chat", async (req, res) => {
     // NEW: Send to OpenAI using Responses API
     // ---------------------------------------
     const response = await client.responses.create({
-      model: "gpt-4o", // غيّرها gpt-4.1 أو gpt-5 حسب المتوفر عندك
+      model: "gpt-4o",  // جرّبه أولاً، لو طلع fallback نعرف من اللوق
       input: messages,
     });
 
+    // 👇 اطبع اسم الموديل فعلياً
+    console.log("Model used by OpenAI:", response.model);
+
+    // Extract reply
     const reply =
       response.output?.[0]?.content?.[0]?.text ||
       "No response generated.";
