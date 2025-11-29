@@ -68,7 +68,7 @@ app.post("/chat", async (req, res) => {
     // NEW: Send to OpenAI using Responses API
     // ---------------------------------------
     const response = await client.responses.create({
-      model: "gpt-4o",  // جرّبه أولاً، لو طلع fallback نعرف من اللوق
+      model: "gpt-5",  // جرّبه أولاً، لو طلع fallback نعرف من اللوق
       input: messages,
     });
     console.log("🚀 MODEL USED BY OPENAI:", response.model);
