@@ -2,66 +2,91 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const OpenAI = require("openai");
+const { createClient } = require("@supabase/supabase-js");
 
+// -------------------------------
+// Initialize App
+// -------------------------------
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
+// -------------------------------
+// OpenAI Client
+// -------------------------------
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// -------------------------------
+// Supabase Client
+// -------------------------------
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // مهم: SERVICE ROLE KEY
+);
+
+// -------------------------------
+// Chat Endpoint
+// -------------------------------
 app.post("/chat", async (req, res) => {
   try {
-    const userMessage = req.body.message;
-    const imageData = req.body.image; // Base64 image data
+    const { user_id, message } = req.body;
 
-    if (!userMessage && !imageData) {
-      return res.status(400).json({ error: "Message or image is required" });
+    if (!message) {
+      return res.status(400).json({ error: "Message is required" });
     }
 
-    console.log("User:", userMessage || "[Image]");
-
-    // Prepare messages for OpenAI
-    const messages = [];
-
-    if (imageData) {
-      // If image is included, use vision-capable model
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: userMessage || "What's in this image?" },
-          { type: "image_url", image_url: { url: imageData } }
-        ]
-      });
-    } else {
-      // Regular text message
-      messages.push({
-        role: "user",
-        content: userMessage
-      });
-    }
-
+    // Send prompt to OpenAI
     const completion = await openai.chat.completions.create({
-      model: imageData ? "gpt-4o-mini" : "gpt-3.5-turbo", // Use vision model for images
-      messages: messages,
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: message }],
     });
 
-    const aiReply = completion.choices[0]?.message?.content || "No reply";
-    console.log("AI:", aiReply);
+    const reply = completion.choices[0].message.content;
 
-    res.json({ reply: aiReply });
+    // Save chat in Supabase
+    const { error: dbError } = await supabase.from("messages").insert([
+      {
+        user_id: user_id || "guest",
+        prompt: message,
+        reply: reply,
+      },
+    ]);
+
+    if (dbError) {
+      console.error("Supabase Insert Error:", dbError);
+    }
+
+    res.json({ reply });
   } catch (error) {
-    console.error("Error:", error.message);
-    res.status(500).json({ error: "Failed: " + error.message });
+    console.error("Chat error:", error);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
+// -------------------------------
+// Fetch Conversation History
+// -------------------------------
+app.get("/history/:user_id", async (req, res) => {
+  const { user_id } = req.params;
+
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("user_id", user_id)
+    .order("created_at", { ascending: true });
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json(data);
+});
+
+// -------------------------------
+// Start Server
+// -------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server: http://localhost:${PORT}`);
-}).on('error', (err) => {
-  console.error('Server error:', err.message);
-  process.exit(1);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

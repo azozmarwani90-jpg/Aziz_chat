@@ -8,13 +8,18 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["chat", "openai", "ai"],
+  "keywords": [
+    "chat",
+    "openai",
+    "ai"
+  ],
   "author": "Aziz",
   "license": "ISC",
   "engines": {
     "node": ">=14.0.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
