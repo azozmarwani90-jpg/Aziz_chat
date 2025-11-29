@@ -49,6 +49,7 @@
   
   /* Sidebar */
   --sidebar-width: 280px;
+  --header-height: 60px;
 }
 
 body {
@@ -67,6 +68,28 @@ body {
   display: flex;
   height: 100vh;
   width: 100%;
+  position: relative;
+}
+
+/* ============================================ */
+/* SIDEBAR OVERLAY (Mobile) */
+/* ============================================ */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 998;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+  display: block;
+  opacity: 1;
 }
 
 /* ============================================ */
@@ -79,6 +102,8 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  z-index: 999;
+  transition: transform 0.3s ease;
 }
 
 .sidebar-header {
@@ -86,18 +111,19 @@ body {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.logo {
+.sidebar-title {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: var(--space-md);
 }
 
-.logo svg {
+.sidebar-title svg {
   color: var(--accent-primary);
+  flex-shrink: 0;
 }
 
 .new-chat-btn {
@@ -120,11 +146,13 @@ body {
 .new-chat-btn:hover {
   background: var(--bg-active);
   border-color: var(--accent-primary);
+  transform: translateY(-1px);
 }
 
 .new-chat-btn svg {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
 }
 
 /* Conversations List */
@@ -149,9 +177,8 @@ body {
 
 .conversation-item {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 10px var(--space-md);
+  flex-direction: column;
+  padding: 12px var(--space-md);
   margin-bottom: var(--space-xs);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -163,6 +190,7 @@ body {
 
 .conversation-item:hover {
   background: var(--bg-hover);
+  border-color: var(--border-subtle);
 }
 
 .conversation-item.active {
@@ -170,10 +198,17 @@ body {
   border-color: var(--border-color);
 }
 
+.conversation-item-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 4px;
+}
+
 .conversation-icon {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: var(--text-tertiary);
 }
 
@@ -184,16 +219,26 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .conversation-item.active .conversation-title {
   color: var(--text-primary);
 }
 
+.conversation-timestamp {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding-left: 24px;
+}
+
 .delete-chat-btn {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -226,7 +271,7 @@ body {
   border-top: 1px solid var(--border-subtle);
 }
 
-.user-profile {
+.user-info {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -236,11 +281,11 @@ body {
   transition: all 0.2s ease;
 }
 
-.user-profile:hover {
+.user-info:hover {
   background: var(--bg-hover);
 }
 
-.avatar {
+.user-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -251,9 +296,10 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: white;
+  flex-shrink: 0;
 }
 
-.user-profile span {
+.user-name {
   font-size: 14px;
   color: var(--text-primary);
   font-weight: 500;
@@ -268,9 +314,73 @@ body {
   flex-direction: column;
   background: var(--bg-chat);
   position: relative;
+  min-width: 0;
 }
 
-/* Chat Container */
+/* ============================================ */
+/* HEADER WITH HAMBURGER */
+/* ============================================ */
+.chat-header {
+  height: var(--header-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-lg);
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.hamburger-btn {
+  display: none; /* Hidden on desktop */
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.hamburger-btn:hover {
+  background: var(--bg-hover);
+}
+
+.hamburger-btn span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.hamburger-btn.active span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-btn.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-btn.active span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.header-title h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+/* ============================================ */
+/* CHAT CONTAINER */
+/* ============================================ */
 .chat-container {
   flex: 1;
   overflow-y: auto;
@@ -481,6 +591,7 @@ body {
   background: var(--bg-chat);
   border-top: 1px solid var(--border-subtle);
   padding: var(--space-lg) var(--space-md);
+  flex-shrink: 0;
 }
 
 .input-wrapper {
@@ -645,24 +756,23 @@ body {
 }
 
 /* ============================================ */
-/* RESPONSIVE */
+/* RESPONSIVE (MOBILE) */
 /* ============================================ */
 @media (max-width: 768px) {
-  :root {
-    --sidebar-width: 0;
-  }
-  
   .sidebar {
     position: fixed;
-    left: -280px;
+    left: 0;
     top: 0;
     bottom: 0;
-    z-index: 1000;
-    transition: left 0.3s ease;
+    transform: translateX(-100%);
   }
   
   .sidebar.open {
-    left: 0;
+    transform: translateX(0);
+  }
+  
+  .hamburger-btn {
+    display: flex !important;
   }
   
   .messages-container {
@@ -671,5 +781,13 @@ body {
   
   .input-area {
     padding: var(--space-md) var(--space-sm);
+  }
+  
+  .welcome-screen h1 {
+    font-size: 24px;
+  }
+  
+  .welcome-screen p {
+    font-size: 14px;
   }
 }
