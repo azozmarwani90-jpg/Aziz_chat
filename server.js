@@ -15,7 +15,7 @@ const requiredEnv = [
   "OPENAI_API_KEY",
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "TMDB_KEY"
+  "TMDB_API_KEY"
 ];
 
 console.log("🔍 Checking environment variables...");
@@ -79,7 +79,7 @@ app.get("/api/health", (req, res) => {
     environment: {
       hasOpenAI: !!process.env.OPENAI_API_KEY,
       hasSupabase: !!process.env.SUPABASE_URL,
-      hasTMDB: !!process.env.TMDB_KEY
+      hasTMDB: !!process.env.TMDB_API_KEY
     }
   });
 });
@@ -794,5 +794,14 @@ app.get("/history/:user_id", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📁 Serving static files from /public`);
+  console.log(`${'='.repeat(50)}`);
+  console.log('\n📊 Environment Status:');
+  console.log(`   ✅ OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? 'Loaded' : '❌ Missing'}`);
+  console.log(`   ✅ TMDB_API_KEY: ${process.env.TMDB_API_KEY ? 'Loaded' : '❌ Missing'}`);
+  console.log(`   ✅ SUPABASE_URL: ${process.env.SUPABASE_URL ? 'Loaded' : '❌ Missing'}`);
+  console.log(`   ✅ SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Loaded' : '❌ Missing'}`);
+  console.log(`${'='.repeat(50)}\n`);
 });

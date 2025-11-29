@@ -20,7 +20,7 @@ copy .env.example .env
 
 # Edit .env with your keys:
 # - OPENAI_API_KEY
-# - TMDB_KEY
+# - TMDB_API_KEY
 # - SUPABASE_URL
 # - SUPABASE_SERVICE_ROLE_KEY
 ```

@@ -216,7 +216,7 @@ cp .env.example .env
 4. Edit `.env` file with your actual keys:
 ```env
 OPENAI_API_KEY=sk-proj-YOUR-ACTUAL-KEY-HERE
-TMDB_KEY=your-actual-tmdb-key-here
+TMDB_API_KEY=your-actual-tmdb-key-here
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-actual-service-role-key
 PORT=3000
@@ -310,7 +310,7 @@ vercel
 
 #### "TMDB API key not configured"
 **Solution**: 
-- Check `.env` file has `TMDB_KEY=...`
+- Check `.env` file has `TMDB_API_KEY=...`
 - Restart the server after adding key
 - Verify key is correct (no extra spaces)
 
@@ -331,7 +331,7 @@ vercel
 **Solution**:
 - TMDB images may load slowly
 - Check browser console for errors
-- Verify TMDB_KEY is active
+- Verify TMDB_API_KEY is active
 - Try a different network (some networks block TMDB)
 
 #### OpenAI rate limit errors

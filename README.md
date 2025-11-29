@@ -53,7 +53,7 @@ npm install
 Create a `.env` file in the root directory:
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
-TMDB_KEY=your_tmdb_api_key_here
+TMDB_API_KEY=your_tmdb_api_key_here
 SUPABASE_URL=your_supabase_url_here
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_key_here
 PORT=3000
@@ -299,7 +299,7 @@ Edit `tmdb_helper.js` to adjust:
 ## 🐛 Troubleshooting
 
 ### "TMDB API key not configured"
-- Ensure `TMDB_KEY` is set in `.env` file
+- Ensure `TMDB_API_KEY` is set in `.env` file
 - Get a free API key from themoviedb.org
 - Restart the server after adding the key
 
