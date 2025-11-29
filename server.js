@@ -71,6 +71,8 @@ app.post("/chat", async (req, res) => {
       model: "gpt-4o",  // جرّبه أولاً، لو طلع fallback نعرف من اللوق
       input: messages,
     });
+    console.log("🚀 MODEL USED BY OPENAI:", response.model);
+
 
     // 👇 اطبع اسم الموديل فعلياً
     console.log("Model used by OpenAI:", response.model);
