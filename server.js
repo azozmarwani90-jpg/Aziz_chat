@@ -44,23 +44,23 @@ app.post("/chat", async (req, res) => {
     // Build messages payload
     const messages = [];
 
-    if (message) {
-      messages.push({
-        role: "user",
-        content: message,
-      });
-    }
-
     if (image) {
+      // If image exists, send text + image in single message
       messages.push({
         role: "user",
         content: [
           { type: "text", text: message || "Analyze this image" },
           {
             type: "input_image",
-            image_url: { url: `data:image/jpeg;base64,${image}` },
+            image_url: { url: image }, // Frontend already sends full data URL
           },
         ],
+      });
+    } else if (message) {
+      // If only text, send text-only message
+      messages.push({
+        role: "user",
+        content: message,
       });
     }
 
