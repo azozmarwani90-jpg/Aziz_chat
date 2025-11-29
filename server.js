@@ -67,7 +67,7 @@ app.post("/chat", async (req, res) => {
 
     // Send to OpenAI
     const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-5.1",
       messages: messages,
     });
 
