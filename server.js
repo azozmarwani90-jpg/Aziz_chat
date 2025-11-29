@@ -9,15 +9,43 @@ const tmdbHelper = require("./tmdb_helper");
 const aiHelper = require("./ai_helper");
 
 // -------------------------------
+// Environment Variable Validation
+// -------------------------------
+const requiredEnv = [
+  "OPENAI_API_KEY",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "TMDB_KEY"
+];
+
+console.log("🔍 Checking environment variables...");
+for (const key of requiredEnv) {
+  if (!process.env[key]) {
+    console.error(`❌ Missing required environment variable: ${key}`);
+  } else {
+    console.log(`✅ ${key} is set`);
+  }
+}
+
+// -------------------------------
 // Initialize App
 // -------------------------------
 const app = express();
+
+// CORS with logging
 app.use(cors({ origin: "*" }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from origin: ${req.headers.origin || 'direct'}`);
+  next();
+});
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.use(express.static("public"));
+console.log("📁 Serving static files from /public");
 
 // -------------------------------
 // OpenAI Client
@@ -37,7 +65,24 @@ const supabase = createClient(
 // -------------------------------
 // TMDB API Key
 // -------------------------------
-const TMDB_KEY = process.env.TMDB_KEY;
+const TMDB_KEY = process.env.TMDB_API_KEY;
+
+// ===============================
+// HEALTH CHECK ENDPOINT
+// ===============================
+app.get("/api/health", (req, res) => {
+  console.log("🏥 Health check hit");
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: {
+      hasOpenAI: !!process.env.OPENAI_API_KEY,
+      hasSupabase: !!process.env.SUPABASE_URL,
+      hasTMDB: !!process.env.TMDB_KEY
+    }
+  });
+});
 
 // ===============================
 // CINEMOOD API ENDPOINTS
@@ -48,33 +93,53 @@ const TMDB_KEY = process.env.TMDB_KEY;
 // Main mood-based recommendation endpoint
 // -------------------------------
 app.post("/api/recommend", async (req, res) => {
+  console.log("[BACKEND] /api/recommend - Incoming request", { 
+    body: req.body,
+    user_id: req.body?.user_id,
+    mood_text_length: req.body?.mood_text?.length 
+  });
+
   try {
     const { user_id, mood_text } = req.body;
 
-    if (!mood_text) {
-      return res.status(400).json({ error: "mood_text is required" });
+    // Validation
+    if (!mood_text || typeof mood_text !== 'string' || mood_text.trim().length === 0) {
+      console.log("[BACKEND] /api/recommend - Validation failed: mood_text missing or empty");
+      return res.status(400).json({ 
+        ok: false,
+        error: "mood_text is required",
+        code: "VALIDATION_ERROR"
+      });
     }
 
     if (!TMDB_KEY) {
-      return res.status(500).json({ error: "TMDB API key not configured" });
+      console.error("[BACKEND] /api/recommend - TMDB_KEY not configured");
+      return res.status(500).json({ 
+        ok: false,
+        error: "TMDB API key not configured",
+        code: "CONFIG_ERROR"
+      });
     }
 
     const userId = user_id || "guest";
-
-    console.log(`🎬 Processing mood: "${mood_text}" for user: ${userId}`);
+    console.log(`[BACKEND] /api/recommend - Processing mood: "${mood_text}" for user: ${userId}`);
 
     // STEP 1: Parse mood with AI
+    console.log("[BACKEND] /api/recommend - Calling OpenAI to parse mood...");
     const moodData = await aiHelper.parseMood(client, mood_text);
-    console.log('Parsed mood:', moodData);
+    console.log('[BACKEND] /api/recommend - OpenAI mood parsing success:', moodData);
 
     // STEP 2: Get genre IDs for TMDB
     const genreIds = tmdbHelper.mapGenresToIds(moodData.genres);
+    console.log(`[BACKEND] /api/recommend - Mapped to genre IDs: ${genreIds.join(', ')}`);
 
     // STEP 3: Fetch titles from TMDB (mix of movies and TV)
+    console.log("[BACKEND] /api/recommend - Fetching titles from TMDB...");
     const [movies, tvShows] = await Promise.all([
       tmdbHelper.discoverMovies(TMDB_KEY, genreIds, { maxResults: 6 }),
       tmdbHelper.discoverTV(TMDB_KEY, genreIds, { maxResults: 4 })
     ]);
+    console.log(`[BACKEND] /api/recommend - TMDB discover success: ${movies.length} movies, ${tvShows.length} TV shows`);
 
     let allTitles = [...movies, ...tvShows];
 
@@ -82,19 +147,23 @@ app.post("/api/recommend", async (req, res) => {
     allTitles = allTitles.sort(() => Math.random() - 0.5).slice(0, 8);
 
     if (allTitles.length === 0) {
+      console.log("[BACKEND] /api/recommend - No titles found, returning empty result");
       return res.json({
+        ok: true,
         mood_summary: "Even the universe is confused… try another mood.",
         recommendations: []
       });
     }
 
     // STEP 4: Generate AI commentary for each title
+    console.log("[BACKEND] /api/recommend - Generating AI commentary...");
     const whyItFits = await aiHelper.generateMoodFit(
       client,
       mood_text,
       moodData.mood_tags,
       allTitles
     );
+    console.log("[BACKEND] /api/recommend - AI commentary generation success");
 
     // Attach why_it_fits to each title
     const recommendations = allTitles.map((title, index) => ({
@@ -103,6 +172,7 @@ app.post("/api/recommend", async (req, res) => {
     }));
 
     // STEP 5: Save to Supabase
+    console.log("[BACKEND] /api/recommend - Saving to Supabase...");
     // Save mood history
     const { data: moodRecord, error: moodError } = await supabase
       .from("mood_history")
@@ -118,7 +188,9 @@ app.post("/api/recommend", async (req, res) => {
       .single();
 
     if (moodError) {
-      console.error('Supabase mood_history error:', moodError);
+      console.error('[BACKEND] /api/recommend - Supabase mood_history error:', moodError);
+    } else {
+      console.log('[BACKEND] /api/recommend - Supabase mood_history insert success');
     }
 
     // Save recommendations
@@ -137,12 +209,16 @@ app.post("/api/recommend", async (req, res) => {
         .insert(recsToInsert);
 
       if (recsError) {
-        console.error('Supabase recommendations_history error:', recsError);
+        console.error('[BACKEND] /api/recommend - Supabase recommendations_history error:', recsError);
+      } else {
+        console.log('[BACKEND] /api/recommend - Supabase recommendations_history insert success');
       }
     }
 
     // STEP 6: Return response
+    console.log(`[BACKEND] /api/recommend - Success! Returning ${recommendations.length} recommendations`);
     res.json({
+      ok: true,
       mood_summary: `Found ${recommendations.length} ${moodData.mood_tags.join(', ')} picks for you`,
       mood_tags: moodData.mood_tags,
       genres: moodData.genres,
@@ -150,8 +226,13 @@ app.post("/api/recommend", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Recommend error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("[BACKEND] /api/recommend - ERROR:", error);
+    console.error("[BACKEND] /api/recommend - Error stack:", error.stack);
+    res.status(500).json({ 
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR"
+    });
   }
 });
 
@@ -160,20 +241,44 @@ app.post("/api/recommend", async (req, res) => {
 // Get detailed information for a specific title
 // -------------------------------
 app.get("/api/title/:type/:tmdb_id", async (req, res) => {
+  console.log("[BACKEND] /api/title - Incoming request", req.params);
+
   try {
     const { type, tmdb_id } = req.params;
 
-    if (!TMDB_KEY) {
-      return res.status(500).json({ error: "TMDB API key not configured" });
+    // Validation
+    if (!type || !tmdb_id) {
+      console.log("[BACKEND] /api/title - Validation failed: missing parameters");
+      return res.status(400).json({ 
+        ok: false,
+        error: "type and tmdb_id are required",
+        code: "VALIDATION_ERROR"
+      });
     }
 
+    if (!TMDB_KEY) {
+      console.error("[BACKEND] /api/title - TMDB_KEY not configured");
+      return res.status(500).json({ 
+        ok: false,
+        error: "TMDB API key not configured",
+        code: "CONFIG_ERROR"
+      });
+    }
+
+    console.log(`[BACKEND] /api/title - Fetching details for ${type}/${tmdb_id}...`);
     // Fetch TMDB details
     const titleData = await tmdbHelper.getTitleDetails(TMDB_KEY, tmdb_id, type);
 
     if (!titleData) {
-      return res.status(404).json({ error: "Title not found" });
+      console.log("[BACKEND] /api/title - Title not found");
+      return res.status(404).json({ 
+        ok: false,
+        error: "Title not found",
+        code: "NOT_FOUND"
+      });
     }
 
+    console.log("[BACKEND] /api/title - TMDB data fetched, generating AI descriptions...");
     // Generate AI descriptions
     const [aiDescription, aiViewerFit] = await Promise.all([
       aiHelper.generateTitleDescription(
@@ -189,15 +294,22 @@ app.get("/api/title/:type/:tmdb_id", async (req, res) => {
       )
     ]);
 
+    console.log("[BACKEND] /api/title - AI descriptions generated successfully");
     res.json({
+      ok: true,
       ...titleData,
       ai_description: aiDescription,
       ai_viewer_fit: aiViewerFit
     });
 
   } catch (error) {
-    console.error("Title details error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("[BACKEND] /api/title - ERROR:", error);
+    console.error("[BACKEND] /api/title - Error stack:", error.stack);
+    res.status(500).json({ 
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR"
+    });
   }
 });
 
@@ -206,11 +318,19 @@ app.get("/api/title/:type/:tmdb_id", async (req, res) => {
 // Get curated discovery sections
 // -------------------------------
 app.get("/api/discover", async (req, res) => {
+  console.log("[BACKEND] /api/discover - Incoming request");
+
   try {
     if (!TMDB_KEY) {
-      return res.status(500).json({ error: "TMDB API key not configured" });
+      console.error("[BACKEND] /api/discover - TMDB_KEY not configured");
+      return res.status(500).json({ 
+        ok: false,
+        error: "TMDB API key not configured",
+        code: "CONFIG_ERROR"
+      });
     }
 
+    console.log("[BACKEND] /api/discover - Fetching content from TMDB...");
     // Fetch multiple sections in parallel
     const [trending, popular, actionMovies, comedyMovies] = await Promise.all([
       tmdbHelper.getTrending(TMDB_KEY, 'all', 'week'),
@@ -219,7 +339,10 @@ app.get("/api/discover", async (req, res) => {
       tmdbHelper.discoverMovies(TMDB_KEY, [35], { maxResults: 10, randomOffset: false })
     ]);
 
+    console.log(`[BACKEND] /api/discover - TMDB fetch success: trending(${trending.length}), popular(${popular.length}), action(${actionMovies.length}), comedy(${comedyMovies.length})`);
+
     // Generate captions for each section
+    console.log("[BACKEND] /api/discover - Generating AI captions...");
     const [trendingCaption, popularCaption, actionCaption, comedyCaption] = await Promise.all([
       aiHelper.generateSectionCaption(client, "Trending Now", trending),
       aiHelper.generateSectionCaption(client, "Tonight's Picks", popular),
@@ -227,7 +350,9 @@ app.get("/api/discover", async (req, res) => {
       aiHelper.generateSectionCaption(client, "Light & Funny", comedyMovies)
     ]);
 
+    console.log("[BACKEND] /api/discover - Success! Returning sections");
     res.json({
+      ok: true,
       sections: [
         {
           id: "trending",
@@ -257,8 +382,13 @@ app.get("/api/discover", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Discover error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("[BACKEND] /api/discover - ERROR:", error);
+    console.error("[BACKEND] /api/discover - Error stack:", error.stack);
+    res.status(500).json({ 
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR"
+    });
   }
 });
 
@@ -267,9 +397,21 @@ app.get("/api/discover", async (req, res) => {
 // Get user profile with cinema personality
 // -------------------------------
 app.get("/api/profile/:user_id", async (req, res) => {
+  console.log("[BACKEND] /api/profile - Incoming request", req.params);
+
   try {
     const { user_id } = req.params;
 
+    if (!user_id) {
+      console.log("[BACKEND] /api/profile - Validation failed: missing user_id");
+      return res.status(400).json({ 
+        ok: false,
+        error: "user_id is required",
+        code: "VALIDATION_ERROR"
+      });
+    }
+
+    console.log(`[BACKEND] /api/profile - Fetching data for user: ${user_id}`);
     // Fetch user data from Supabase
     const [
       { data: moodHistory },
@@ -295,15 +437,19 @@ app.get("/api/profile/:user_id", async (req, res) => {
         .limit(10)
     ]);
 
+    console.log(`[BACKEND] /api/profile - Supabase fetch success: mood(${moodHistory?.length || 0}), favorites(${favorites?.length || 0}), viewed(${viewedTitles?.length || 0})`);
+
     // Generate cinema personality if user has history
     let cinemaPersonality = "Start exploring to discover your cinema personality...";
     if (moodHistory && moodHistory.length > 0) {
+      console.log("[BACKEND] /api/profile - Generating cinema personality...");
       cinemaPersonality = await aiHelper.generateCinemaPersonality(
         client,
         moodHistory,
         favorites || [],
         viewedTitles || []
       );
+      console.log("[BACKEND] /api/profile - Cinema personality generated");
     }
 
     // Calculate mood stats
@@ -325,7 +471,9 @@ app.get("/api/profile/:user_id", async (req, res) => {
       });
     }
 
+    console.log("[BACKEND] /api/profile - Success! Returning profile data");
     res.json({
+      ok: true,
       user_id,
       cinema_personality: cinemaPersonality,
       mood_history: moodHistory || [],
@@ -347,8 +495,13 @@ app.get("/api/profile/:user_id", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Profile error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("[BACKEND] /api/profile - ERROR:", error);
+    console.error("[BACKEND] /api/profile - Error stack:", error.stack);
+    res.status(500).json({ 
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR"
+    });
   }
 });
 
@@ -357,14 +510,22 @@ app.get("/api/profile/:user_id", async (req, res) => {
 // Add/remove favorite
 // -------------------------------
 app.post("/api/favorite", async (req, res) => {
+  console.log("[BACKEND] /api/favorite - Incoming request", req.body);
+
   try {
     const { user_id, tmdb_id, type, title, poster_url, action } = req.body;
 
     if (!user_id || !tmdb_id || !action) {
-      return res.status(400).json({ error: "Missing required fields" });
+      console.log("[BACKEND] /api/favorite - Validation failed: missing required fields");
+      return res.status(400).json({ 
+        ok: false,
+        error: "Missing required fields",
+        code: "VALIDATION_ERROR"
+      });
     }
 
     if (action === 'add') {
+      console.log(`[BACKEND] /api/favorite - Adding favorite: ${title} for user ${user_id}`);
       const { error } = await supabase
         .from("favorites")
         .insert([{
@@ -376,12 +537,18 @@ app.post("/api/favorite", async (req, res) => {
         }]);
 
       if (error) {
-        console.error('Add favorite error:', error);
-        return res.status(500).json({ error: "Server error" });
+        console.error('[BACKEND] /api/favorite - Supabase add error:', error);
+        return res.status(500).json({ 
+          ok: false,
+          error: "Server error",
+          code: "DATABASE_ERROR"
+        });
       }
 
-      res.json({ success: true, message: "Added to favorites" });
+      console.log("[BACKEND] /api/favorite - Add success");
+      res.json({ ok: true, success: true, message: "Added to favorites" });
     } else if (action === 'remove') {
+      console.log(`[BACKEND] /api/favorite - Removing favorite: tmdb_id ${tmdb_id} for user ${user_id}`);
       const { error } = await supabase
         .from("favorites")
         .delete()
@@ -389,18 +556,33 @@ app.post("/api/favorite", async (req, res) => {
         .eq("tmdb_id", tmdb_id);
 
       if (error) {
-        console.error('Remove favorite error:', error);
-        return res.status(500).json({ error: "Server error" });
+        console.error('[BACKEND] /api/favorite - Supabase remove error:', error);
+        return res.status(500).json({ 
+          ok: false,
+          error: "Server error",
+          code: "DATABASE_ERROR"
+        });
       }
 
-      res.json({ success: true, message: "Removed from favorites" });
+      console.log("[BACKEND] /api/favorite - Remove success");
+      res.json({ ok: true, success: true, message: "Removed from favorites" });
     } else {
-      res.status(400).json({ error: "Invalid action" });
+      console.log(`[BACKEND] /api/favorite - Invalid action: ${action}`);
+      res.status(400).json({ 
+        ok: false,
+        error: "Invalid action",
+        code: "VALIDATION_ERROR"
+      });
     }
 
   } catch (error) {
-    console.error("Favorite error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("[BACKEND] /api/favorite - ERROR:", error);
+    console.error("[BACKEND] /api/favorite - Error stack:", error.stack);
+    res.status(500).json({ 
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR"
+    });
   }
 });
 
@@ -409,13 +591,21 @@ app.post("/api/favorite", async (req, res) => {
 // Mark title as viewed
 // -------------------------------
 app.post("/api/viewed", async (req, res) => {
+  console.log("[BACKEND] /api/viewed - Incoming request", req.body);
+
   try {
     const { user_id, tmdb_id, type, title, poster_url } = req.body;
 
     if (!user_id || !tmdb_id) {
-      return res.status(400).json({ error: "Missing required fields" });
+      console.log("[BACKEND] /api/viewed - Validation failed: missing required fields");
+      return res.status(400).json({ 
+        ok: false,
+        error: "Missing required fields",
+        code: "VALIDATION_ERROR"
+      });
     }
 
+    console.log(`[BACKEND] /api/viewed - Marking as viewed: ${title} for user ${user_id}`);
     const { error } = await supabase
       .from("viewed_titles")
       .insert([{
@@ -427,15 +617,25 @@ app.post("/api/viewed", async (req, res) => {
       }]);
 
     if (error) {
-      console.error('Mark viewed error:', error);
-      return res.status(500).json({ error: "Server error" });
+      console.error('[BACKEND] /api/viewed - Supabase error:', error);
+      return res.status(500).json({ 
+        ok: false,
+        error: "Server error",
+        code: "DATABASE_ERROR"
+      });
     }
 
-    res.json({ success: true, message: "Marked as viewed" });
+    console.log("[BACKEND] /api/viewed - Success");
+    res.json({ ok: true, success: true, message: "Marked as viewed" });
 
   } catch (error) {
-    console.error("Viewed error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("[BACKEND] /api/viewed - ERROR:", error);
+    console.error("[BACKEND] /api/viewed - Error stack:", error.stack);
+    res.status(500).json({ 
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR"
+    });
   }
 });
 
@@ -447,10 +647,13 @@ app.post("/api/viewed", async (req, res) => {
 // Chat Endpoint (Text + Image with Full Context)
 // -------------------------------
 app.post("/chat", async (req, res) => {
+  console.log("[BACKEND] /chat - Incoming request from user:", req.body?.user_id);
+
   try {
     const { user_id, message, image } = req.body;
 
     if (!message && !image) {
+      console.log("[BACKEND] /chat - Validation failed: no message or image");
       return res.status(400).json({ error: "Message or image is required" });
     }
 
@@ -459,6 +662,7 @@ app.post("/chat", async (req, res) => {
     // -------------------------------
     // 1. FETCH CONVERSATION HISTORY FROM SUPABASE
     // -------------------------------
+    console.log(`[BACKEND] /chat - Fetching history for user: ${userId}`);
     const { data: history, error: fetchError } = await supabase
       .from("messages")
       .select("*")
