@@ -44,45 +44,56 @@ app.post("/chat", async (req, res) => {
     // Build messages payload
     const messages = [];
 
-    if (image) {
-      // If image exists, send text + image in single message
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: message || "Analyze this image" },
-          {
-            type: "input_image",
-            image_url: { url: image }, // Frontend already sends full data URL
-          },
-        ],
-      });
-    } else if (message) {
-      // If only text, send text-only message
+    if (message) {
       messages.push({
         role: "user",
         content: message,
       });
     }
 
-    // ---------------------------------------
-    // NEW: Send to OpenAI using Responses API
-    // ---------------------------------------
+    if (image) {
+      messages.push({
+        role: "user",
+        content: [
+          { type: "text", text: message || "Analyze this image" },
+          {
+            type: "input_image",
+            image_url: { url: `data:image/jpeg;base64,${image}` },
+          },
+        ],
+      });
+    }
+
+    // -------------------------------
+    // Send to OpenAI (supports GPT-5 / GPT-6 / 4o)
+    // -------------------------------
     const response = await client.responses.create({
-      model: "gpt-5",  // جرّبه أولاً، لو طلع fallback نعرف من اللوق
+      model: "gpt-5", 
       input: messages,
     });
-    console.log("🚀 MODEL USED BY OPENAI:", response.model);
 
+    // Log the actual model used (important!)
+    console.log(
+      "🚀 MODEL USED BY OPENAI:",
+      response.model
+    );
 
-    // 👇 اطبع اسم الموديل فعلياً
-    console.log("Model used by OpenAI:", response.model);
+    // -------------------------------
+    // Extract reply (works for all models)
+    // -------------------------------
+    let reply;
 
-    // Extract reply
-    const reply =
-      response.output?.[0]?.content?.[0]?.text ||
-      "No response generated.";
+    if (response.output_text) {
+      reply = response.output_text; // GPT-5 / GPT-6
+    } else if (response.output?.[0]?.content?.[0]?.text) {
+      reply = response.output[0].content[0].text; // GPT-4o
+    } else {
+      reply = "No response generated.";
+    }
 
+    // -------------------------------
     // Save chat in Supabase
+    // -------------------------------
     await supabase.from("messages").insert([
       {
         user_id: user_id || "guest",
